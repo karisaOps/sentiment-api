@@ -4,7 +4,6 @@ on:
   push:
     branches: [ master ]
 
-# Prevent concurrent deployments
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -52,24 +51,18 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             set -e
-
             IMAGE="jkalume/sentiment-api"
             TAG="${{ github.sha }}"
-
             echo "🔄 Pulling image $IMAGE:$TAG ..."
             docker pull $IMAGE:$TAG
-
-            echo "🛑 Stopping old container (if running)..."
+            echo "🛑 Stopping old container..."
             docker stop sentiment-api || true
-
             echo "🗑️ Removing old container..."
             docker rm sentiment-api || true
-
             echo "🚀 Starting new container..."
             docker run -d \
               --restart unless-stopped \
               -p 5000:5000 \
               --name sentiment-api \
               $IMAGE:$TAG
-
-            echo "✅ Deployment completed successfully! Container running on port 5000."
+            echo "✅ Deployment completed successfully!"
