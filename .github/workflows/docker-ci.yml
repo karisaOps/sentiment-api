@@ -1,8 +1,8 @@
 name: Build, Ship, Deploy
 
 on:
-  push:
-    branches: [ master ]
+  pull_request:
+    branches: [ master ]   # triggers on PRs targeting master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,7 +12,7 @@ jobs:
   build-and-push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
-
+    # Optional: skip deployment for PRs if you only want to build/test
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -41,7 +41,8 @@ jobs:
     name: Deploy to Server
     needs: build-and-push
     runs-on: ubuntu-latest
-
+    # Only deploy if it's a PR from the same repository (to avoid exposing secrets on forks)
+    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.2.5

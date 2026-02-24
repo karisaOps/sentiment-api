@@ -56,6 +56,11 @@ curl -X POST http://127.0.0.1:5000/analyze \
   -d '{"text": "It is an ordinary day."}'
 ```
 
+```json
+{
+  "text": "It is an ordinary day."
+}
+```
 
 ### Step 2: Dockerize the Application
 * Create Dockerfile
