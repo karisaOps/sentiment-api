@@ -6,7 +6,7 @@ COPY requirements.txt .
 RUN pip install --user -r requirements.txt
 
 # Final stage
-FROM python:3.9-slimi
+FROM python:3.9-slim
 WORKDIR /app
 
 # Copy installed dependencies from builder
