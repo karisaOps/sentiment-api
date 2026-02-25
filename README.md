@@ -85,45 +85,70 @@ docker push yourusername/sentiment-api:latest
 name: Build, Ship, Deploy
 
 on:
-  push:
-    branches: [ main ]
+  pull_request:
+    branches: [ master ]   # triggers on PRs targeting master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-and-push:
+    name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    # Optional: skip deployment for PRs if you only want to build/test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: yourusername/sentiment-api:latest
+          tags: |
+            yourusername/sentiment-api:latest
+            yourusername/sentiment-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
+    name: Deploy to Server
     needs: build-and-push
     runs-on: ubuntu-latest
+    # Only deploy if it's a PR from the same repository (to avoid exposing secrets on forks)
+    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@v0.1.5
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            docker pull yourusername/sentiment-api:latest
+            set -e
+            IMAGE="yourusername/sentiment-api"
+            TAG="${{ github.sha }}"
+            echo "🔄 Pulling image $IMAGE:$TAG ..."
+            docker pull $IMAGE:$TAG
+            echo "🛑 Stopping old container..."
             docker stop sentiment-api || true
+            echo "🗑️ Removing old container..."
             docker rm sentiment-api || true
-            docker run -d -p 5000:5000 --name sentiment-api yourusername/sentiment-api:latest
+            echo "🚀 Starting new container..."
+            docker run -d \
+              --restart unless-stopped \
+              -p 5000:5000 \
+              --name sentiment-api \
+              $IMAGE:$TAG
+            echo "✅ Deployment completed successfully!"
 ```
